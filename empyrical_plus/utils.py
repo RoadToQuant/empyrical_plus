@@ -23,7 +23,34 @@ import numpy as np
 from numpy.lib.stride_tricks import as_strided
 import pandas as pd
 from pandas.tseries.offsets import BDay
-from .deprecate import deprecated
+
+def deprecated(msg=None, stacklevel=2):
+    """
+    Used to mark a function as deprecated.
+    Parameters
+    ----------
+    msg : str
+        The message to display in the deprecation warning.
+    stacklevel : int
+        How far up the stack the warning needs to go, before
+        showing the relevant calling lines.
+    Usage
+    -----
+    @deprecated(msg='function_a is deprecated! Use function_b instead.')
+    def function_a(*args, **kwargs):
+    """
+    def deprecated_dec(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                msg or "Function %s is deprecated." % fn.__name__,
+                category=DeprecationWarning,
+                stacklevel=stacklevel
+            )
+            return fn(*args, **kwargs)
+        return wrapper
+    return deprecated_dec
+
 
 try:
     # fast versions

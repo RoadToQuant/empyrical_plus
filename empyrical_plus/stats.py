@@ -13,14 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import division
-
 import math
 import pandas as pd
 import numpy as np
 from math import pow
 from scipy import stats, optimize
-from six import iteritems
 from sys import float_info
 
 from .utils import nanmean, nanstd, nanmin, up, down, roll, rolling_window
@@ -997,7 +994,7 @@ def _aligned_series(*many_series):
     # dataframe has no ``itervalues``
     return (
         v
-        for _, v in iteritems(pd.concat(map(_to_pandas, many_series), axis=1))
+        for _, v in pd.concat(map(_to_pandas, many_series), axis=1).items()
     )
 
 
