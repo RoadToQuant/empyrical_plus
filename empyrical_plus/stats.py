@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import division
+
 import math
 import pandas as pd
 import numpy as np
 from math import pow
 from scipy import stats, optimize
+from six import iteritems
 from sys import float_info
 
 from .utils import nanmean, nanstd, nanmin, up, down, roll, rolling_window
@@ -274,7 +277,7 @@ def cum_returns(returns, starting_value=0, out=None):
     return out
 
 
-def cum_returns_final(returns, starting_value=0):
+def cum_returns_final(returns, starting_value=0, simple_interest=True):
     """
     Compute total returns from simple returns.
 
@@ -284,6 +287,8 @@ def cum_returns_final(returns, starting_value=0):
        Noncumulative simple returns of one or more timeseries.
     starting_value : float, optional
        The starting returns.
+    simple_interest: bool, optional
+       Whether calculate in simple interest
 
     Returns
     -------
@@ -298,12 +303,19 @@ def cum_returns_final(returns, starting_value=0):
         return np.nan
 
     if isinstance(returns, pd.DataFrame):
-        result = (returns + 1).prod()
+        if not simple_interest:
+            result = (returns + 1).prod()
+        else:
+            result = returns.sum()
     else:
-        result = np.nanprod(returns + 1, axis=0)
+        if not simple_interest:
+            result = np.nanprod(returns + 1, axis=0)
+        else:
+            result = np.nansum(returns, axis=0)
 
     if starting_value == 0:
-        result -= 1
+        if not simple_interest:
+            result -= 1
     else:
         result *= starting_value
 
@@ -402,7 +414,7 @@ def max_drawdown(returns, out=None):
 roll_max_drawdown = _create_unary_vectorized_roll_function(max_drawdown)
 
 
-def annual_return(returns, period=DAILY, annualization=None):
+def annual_return(returns, period=DAILY, annualization=None, simple_interest=True):
     """
     Determines the mean annual growth rate of returns. This is equivilent
     to the compound annual growth rate.
@@ -439,9 +451,11 @@ def annual_return(returns, period=DAILY, annualization=None):
     ann_factor = annualization_factor(period, annualization)
     num_years = len(returns) / ann_factor
     # Pass array to ensure index -1 looks up successfully.
-    ending_value = cum_returns_final(returns, starting_value=1)
-
-    return ending_value ** (1 / num_years) - 1
+    ending_value = cum_returns_final(returns, starting_value=1, simple_interest=simple_interest)
+    if not simple_interest:
+        return ending_value ** (1 / num_years) - 1
+    else:
+        return ending_value / num_years
 
 
 def cagr(returns, period=DAILY, annualization=None):
@@ -994,7 +1008,7 @@ def _aligned_series(*many_series):
     # dataframe has no ``itervalues``
     return (
         v
-        for _, v in pd.concat(map(_to_pandas, many_series), axis=1).items()
+        for _, v in iteritems(pd.concat(map(_to_pandas, many_series), axis=1))
     )
 
 
