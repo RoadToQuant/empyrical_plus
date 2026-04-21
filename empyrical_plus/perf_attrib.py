@@ -113,8 +113,13 @@ def perf_attrib(returns,
         ('timing_returns', timing_returns)
         ]))
 
-    return (risk_exposures_portfolio,
-            pd.concat([perf_attrib_by_factor, returns_df], axis='columns'))
+    perf_attrib_output = pd.concat([perf_attrib_by_factor, returns_df], axis='columns')
+    # Preserve index frequency lost during concat / groupby
+    if hasattr(returns.index, 'freq') and returns.index.freq is not None:
+        perf_attrib_output.index.freq = returns.index.freq
+        risk_exposures_portfolio.index.freq = returns.index.freq
+
+    return (risk_exposures_portfolio, perf_attrib_output)
 
 
 def compute_exposures(positions, factor_loadings):

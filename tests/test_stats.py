@@ -1,6 +1,5 @@
-from __future__ import division
-
 from copy import copy
+from functools import wraps
 from operator import attrgetter
 from unittest import TestCase, SkipTest
 
@@ -10,16 +9,11 @@ from numpy.testing import assert_almost_equal, assert_allclose
 import pandas as pd
 from pandas.core.generic import NDFrame
 from scipy import stats
-from six import iteritems, wraps
 
-try:
-    from pandas.testing import assert_index_equal
-except ImportError:
-    # This moved in pandas 0.20.
-    from pandas.util.testing import assert_index_equal
+from pandas.testing import assert_index_equal
 
-import empyrical
-import empyrical.utils as emutils
+import empyrical_plus as empyrical
+import empyrical_plus.utils as emutils
 
 DECIMAL_PLACES = 8
 
@@ -772,14 +766,16 @@ class TestStats(BaseTestCase):
             returns_arr = returns.values
             benchmark_arr = benchmark.values
             mask = ~np.isnan(returns_arr) & ~np.isnan(benchmark_arr)
-            slope, intercept, _, _, _ = stats.linregress(benchmark_arr[mask],
-                                                         returns_arr[mask])
+            benchmark_masked = benchmark_arr[mask]
+            if len(np.unique(benchmark_masked)) > 1:
+                slope, intercept, _, _, _ = stats.linregress(benchmark_masked,
+                                                             returns_arr[mask])
 
-            assert_almost_equal(
-                observed,
-                intercept * 252,
-                DECIMAL_PLACES
-            )
+                assert_almost_equal(
+                    observed,
+                    intercept * 252,
+                    DECIMAL_PLACES
+                )
 
     # Alpha/beta translation tests.
     @parameterized.expand([
@@ -921,13 +917,15 @@ class TestStats(BaseTestCase):
             returns_arr = returns.values
             benchmark_arr = benchmark.values
             mask = ~np.isnan(returns_arr) & ~np.isnan(benchmark_arr)
-            slope, intercept, _, _, _ = stats.linregress(benchmark_arr[mask],
-                                                         returns_arr[mask])
+            benchmark_masked = benchmark_arr[mask]
+            if len(np.unique(benchmark_masked)) > 1:
+                slope, intercept, _, _, _ = stats.linregress(benchmark_masked,
+                                                             returns_arr[mask])
 
-            assert_almost_equal(
-                observed,
-                slope
-            )
+                assert_almost_equal(
+                    observed,
+                    slope
+                )
 
     @parameterized.expand([
         (empty_returns, simple_benchmark),
@@ -1619,7 +1617,7 @@ class ReturnTypeEmpyricalProxy(object):
     def __call__(self, **kwargs):
         dupe = copy(self)
 
-        for k, v in iteritems(kwargs):
+        for k, v in kwargs.items():
             attr = '_' + k
             if hasattr(dupe, attr):
                 setattr(dupe, attr, v)
@@ -1660,7 +1658,7 @@ class ReturnTypeEmpyricalProxy(object):
             arg_copies = [(i, arg.copy()) for i, arg in enumerate(args)
                           if isinstance(arg, (NDFrame, np.ndarray))]
             kwarg_copies = {
-                k: v.copy() for k, v in iteritems(kwargs)
+                k: v.copy() for k, v in kwargs.items()
                 if isinstance(v, (NDFrame, np.ndarray))
             }
 
@@ -1675,7 +1673,7 @@ class ReturnTypeEmpyricalProxy(object):
                     err_msg="Input 'arg %s' mutated by %s"
                             % (i, func.__name__),
                 )
-            for kwarg_name, kwarg_copy in iteritems(kwarg_copies):
+            for kwarg_name, kwarg_copy in kwarg_copies.items():
                 assert_allclose(
                     kwargs[kwarg_name],
                     kwarg_copy,
@@ -1717,7 +1715,7 @@ class ConvertPandasEmpyricalProxy(ReturnTypeEmpyricalProxy):
                     for arg in args]
             kwargs = {
                 k: self._convert(v) if isinstance(v, NDFrame) else v
-                for k, v in iteritems(kwargs)
+                for k, v in kwargs.items()
             }
             return func(*args, **kwargs)
 
